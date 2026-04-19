@@ -15,7 +15,7 @@ class Session(Base):
     __tablename__ = "sessions"
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
-    audit_id = Column(String(36), nullable=False)
+    audit_id = Column(String(36), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     status = Column(String(20), default="active")
@@ -32,8 +32,9 @@ class ChatHistory(Base):
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
     session_id = Column(String(36), ForeignKey("sessions.id"), nullable=False)
+    request_id = Column(String(36), index=True)
     question = Column(Text, nullable=False)
-    answer = Column(Text, nullable=False)
+    answer = Column(Text)
     sources = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
 
