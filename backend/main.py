@@ -5,10 +5,12 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.config import settings
 from backend.database import create_tables
 from backend.routes import chat as chat_router
 from backend.routes import evidencia as evidencia_router
 from backend.routes import sessions as sessions_router
+from backend.routes import webhooks as webhooks_router
 
 
 @asynccontextmanager
@@ -29,7 +31,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -39,6 +41,7 @@ app.add_middleware(
 app.include_router(sessions_router.router)
 app.include_router(evidencia_router.router)
 app.include_router(chat_router.router)
+app.include_router(webhooks_router.router)
 
 
 @app.get("/")

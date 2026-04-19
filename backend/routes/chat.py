@@ -10,46 +10,47 @@ from backend.utils.n8n import n8n_client
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-_N8N_OFFLINE_RESPONSE = "N8N no disponible en este momento"
-
 
 @router.post("/", response_model=ChatResponse)
 def chat(body: ChatRequest, db: DBSession = Depends(get_db)) -> ChatResponse:
-    # Validar que la sesión existe
     session = db.query(Session).filter(Session.id == body.session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Sesión no encontrada")
 
-    respuesta = _N8N_OFFLINE_RESPONSE
-    fuentes: list[SourceInfo] = []
+    request_id = generate_uuid()
+
+    history = ChatHistory(
+        id=generate_uuid(),
+        session_id=body.session_id,
+        request_id=request_id,
+        question=body.question,
+        answer=None,
+        sources=[],
+    )
+    db.add(history)
+    db.commit()
+
+    answer: str | None = None
+    sources: list[SourceInfo] = []
 
     try:
-        result = n8n_client.trigger_chat(body.pregunta, body.session_id)
-
+        result = n8n_client.trigger_chat(body.question, body.session_id, request_id)
         if result.get("status") != "error":
-            respuesta = result.get("respuesta", _N8N_OFFLINE_RESPONSE)
-            fuentes = [
-                SourceInfo(nombre=f.get("nombre", ""), relevancia=f.get("relevancia"))
-                for f in result.get("fuentes", [])
+            answer = result.get("answer") or result.get("respuesta")
+            raw_sources = result.get("sources") or result.get("fuentes", [])
+            sources = [
+                SourceInfo.model_validate(f) for f in raw_sources
             ]
+            history.answer = answer
+            history.sources = [{"name": f.name, "relevance": f.relevance} for f in sources]
+            db.commit()
     except Exception as e:
         print(f"⚠️ Chat sin N8N: {e}")
 
-    # Guardar en BD solo si obtuvimos respuesta real
-    if respuesta != _N8N_OFFLINE_RESPONSE:
-        history = ChatHistory(
-            id=generate_uuid(),
-            session_id=body.session_id,
-            question=body.pregunta,
-            answer=respuesta,
-            sources=[{"nombre": f.nombre, "relevancia": f.relevancia} for f in fuentes],
-        )
-        db.add(history)
-        db.commit()
-
     return ChatResponse(
-        respuesta=respuesta,
-        fuentes=fuentes,
+        answer=answer or "N8N no disponible en este momento",
+        sources=sources,
         session_id=body.session_id,
+        request_id=request_id,
         timestamp=datetime.utcnow(),
     )
