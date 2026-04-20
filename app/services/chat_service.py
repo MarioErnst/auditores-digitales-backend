@@ -5,7 +5,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session as DBSession
 
 from app.core.constants import N8N_OFFLINE_MESSAGE
-from app.core.exceptions import SessionNotFoundError
+from app.core.exceptions import N8NUnavailableError, SessionNotFoundError
 from app.models.chat_history import ChatHistory
 from app.repository.chat_repository import ChatRepository
 from app.repository.session_repository import SessionRepository
@@ -27,17 +27,6 @@ class ChatService:
             raise SessionNotFoundError(session_id)
 
         request_id = generate_uuid()
-
-        # Guardar upfront con respuesta vacía — así el webhook puede localizar
-        # este registro por request_id cuando N8N termine de procesar
-        history = self.chat_repo.create(
-            session_id=session_id,
-            request_id=request_id,
-            question=question,
-            answer=None,
-            sources=[],
-        )
-
         answer: Optional[str] = None
         sources: List[SourceInfo] = []
 
@@ -47,16 +36,22 @@ class ChatService:
                 answer = result.get("answer") or result.get("respuesta")
                 raw_sources = result.get("sources") or result.get("fuentes", [])
                 sources = [SourceInfo.model_validate(s) for s in raw_sources]
+        except N8NUnavailableError as e:
+            log_warning(f"N8N no disponible para chat: {e}")
 
-                sources_json = [
-                    {"name": s.name, "relevance": s.relevance} for s in sources
-                ]
-                self.chat_repo.update_answer(history, answer or "", sources_json)
-        except Exception as e:
-            log_warning(f"Chat sin N8N: {e}")
+        final_answer = answer or N8N_OFFLINE_MESSAGE
+        sources_json = [{"name": s.name, "relevance": s.relevance} for s in sources]
+
+        self.chat_repo.create(
+            session_id=session_id,
+            request_id=request_id,
+            question=question,
+            answer=final_answer,
+            sources=sources_json,
+        )
 
         return ChatResponse(
-            answer=answer or N8N_OFFLINE_MESSAGE,
+            answer=final_answer,
             sources=sources,
             session_id=session_id,
             request_id=request_id,
