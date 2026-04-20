@@ -10,7 +10,7 @@ from app.core.constants import (
     MAX_EVIDENCE_SIZE_BYTES,
     MAX_EVIDENCE_SIZE_MB,
 )
-from app.core.exceptions import SessionNotFoundError
+from app.core.exceptions import N8NUnavailableError, SessionNotFoundError
 from app.models.evidence import EvidenceMetadata
 from app.repository.evidence_repository import EvidenceRepository
 from app.repository.session_repository import SessionRepository
@@ -41,10 +41,8 @@ class EvidenceService:
         request_id = generate_uuid()
 
         try:
-            result = n8n_service.dispatch_upload(file_base64, filename, session_id)
-            if isinstance(result, dict) and result.get("request_id"):
-                request_id = result["request_id"]
-        except Exception as e:
+            n8n_service.dispatch_upload(file_base64, filename, session_id, request_id)
+        except N8NUnavailableError as e:
             log_warning(f"N8N no disponible, guardando en BD de todos modos: {e}")
 
         self.evidence_repo.create(
