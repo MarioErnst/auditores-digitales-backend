@@ -206,5 +206,4 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# Claude 
-CLAUDE.md
+update .gitignore to track claude.md
