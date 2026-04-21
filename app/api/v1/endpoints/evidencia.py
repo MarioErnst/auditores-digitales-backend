@@ -24,7 +24,7 @@ async def upload_evidence(
     contents = await file.read()
     service = EvidenceService(db)
     try:
-        return service.upload_evidence(filename, contents, session_id)
+        return await service.upload_evidence(filename, contents, session_id)
     except SessionNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except InvalidFileExtensionError as e:

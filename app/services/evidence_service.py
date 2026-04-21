@@ -27,7 +27,7 @@ class EvidenceService:
         self.evidence_repo = EvidenceRepository(db)
         self.session_repo = SessionRepository(db)
 
-    def upload_evidence(
+    async def upload_evidence(
         self, filename: str, contents: bytes, session_id: str
     ) -> EvidenceUploadResponse:
         session = self.session_repo.get(session_id)
@@ -41,7 +41,7 @@ class EvidenceService:
         request_id = generate_uuid()
 
         try:
-            n8n_service.dispatch_upload(file_base64, filename, session_id, request_id)
+            await n8n_service.dispatch_upload(file_base64, filename, session_id, request_id)
         except N8NUnavailableError as e:
             log_warning(f"N8N no disponible, guardando en BD de todos modos: {e}")
 

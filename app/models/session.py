@@ -20,6 +20,7 @@ class Session(Base):
 
     chat_history = relationship("ChatHistory", back_populates="session")
     evidence = relationship("EvidenceMetadata", back_populates="session")
+    rag_stores = relationship("RagStore", back_populates="session")
 
     def __repr__(self) -> str:
         return f"<Session id={self.id} audit_id={self.audit_id} status={self.status}>"

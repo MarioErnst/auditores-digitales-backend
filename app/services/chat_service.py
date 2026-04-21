@@ -21,7 +21,7 @@ class ChatService:
         self.chat_repo = ChatRepository(db)
         self.session_repo = SessionRepository(db)
 
-    def process_chat(self, question: str, session_id: str) -> ChatResponse:
+    async def process_chat(self, question: str, session_id: str) -> ChatResponse:
         session = self.session_repo.get(session_id)
         if not session:
             raise SessionNotFoundError(session_id)
@@ -31,7 +31,7 @@ class ChatService:
         sources: List[SourceInfo] = []
 
         try:
-            result = n8n_service.dispatch_chat(question, session_id, request_id)
+            result = await n8n_service.dispatch_chat(question, session_id, request_id)
             if result.get("status") != "error":
                 answer = result.get("answer") or result.get("respuesta")
                 raw_sources = result.get("sources") or result.get("fuentes", [])

@@ -12,15 +12,17 @@ class N8NService:
     def __init__(self) -> None:
         self.client = n8n_client
 
-    def dispatch_upload(
+    async def dispatch_upload(
         self, file_base64: str, filename: str, session_id: str, request_id: str
     ) -> dict:
-        return self.client.trigger_upload(file_base64, filename, session_id, request_id)
+        return await self.client.trigger_upload(
+            file_base64, filename, session_id, request_id
+        )
 
-    def dispatch_chat(
+    async def dispatch_chat(
         self, question: str, session_id: str, request_id: str
     ) -> dict:
-        return self.client.trigger_chat(question, session_id, request_id)
+        return await self.client.trigger_chat(question, session_id, request_id)
 
 
 n8n_service = N8NService()
