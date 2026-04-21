@@ -13,10 +13,10 @@ class N8NService:
         self.client = n8n_client
 
     async def dispatch_upload(
-        self, file_base64: str, filename: str, session_id: str, request_id: str
+        self, file_contents: bytes, filename: str, session_id: str, request_id: str
     ) -> dict:
         return await self.client.trigger_upload(
-            file_base64, filename, session_id, request_id
+            file_contents, filename, session_id, request_id
         )
 
     async def dispatch_chat(

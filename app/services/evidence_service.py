@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import base64
 from typing import Optional
 
 from sqlalchemy.orm import Session as DBSession
@@ -37,11 +36,10 @@ class EvidenceService:
         validate_extension(filename, ALLOWED_EVIDENCE_EXTENSIONS)
         validate_size(len(contents), MAX_EVIDENCE_SIZE_BYTES, MAX_EVIDENCE_SIZE_MB)
 
-        file_base64 = base64.b64encode(contents).decode()
         request_id = generate_uuid()
 
         try:
-            await n8n_service.dispatch_upload(file_base64, filename, session_id, request_id)
+            await n8n_service.dispatch_upload(contents, filename, session_id, request_id)
         except N8NUnavailableError as e:
             log_warning(f"N8N no disponible, guardando en BD de todos modos: {e}")
 

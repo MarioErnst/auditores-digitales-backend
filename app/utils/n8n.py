@@ -9,6 +9,20 @@ _UPLOAD_TIMEOUT = 30
 _CHAT_TIMEOUT = 60
 _HEALTH_TIMEOUT = 5
 
+_MIMETYPES: dict[str, str] = {
+    ".pdf": "application/pdf",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".xls": "application/vnd.ms-excel",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".doc": "application/msword",
+    ".csv": "text/csv",
+}
+
+
+def _detect_mimetype(filename: str) -> str:
+    ext = ("." + filename.rsplit(".", 1)[-1].lower()) if "." in filename else ""
+    return _MIMETYPES.get(ext, "application/octet-stream")
+
 
 class N8NClient:
     def __init__(self) -> None:
@@ -67,22 +81,25 @@ class N8NClient:
             }
 
     async def trigger_upload(
-        self, file_base64: str, filename: str, session_id: str, request_id: str
+        self, file_contents: bytes, filename: str, session_id: str, request_id: str
     ) -> dict:
         url = self._webhook_url("upload-evidence")
-        payload = {
-            "request_id": request_id,
-            "file": file_base64,
-            "filename": filename,
-            "session_id": session_id,
-        }
+        mimetype = _detect_mimetype(filename)
 
         log_upload(
             f"Disparando N8N upload para {filename} (request_id={request_id})"
         )
         try:
             async with httpx.AsyncClient(timeout=_UPLOAD_TIMEOUT) as client:
-                response = await client.post(url, json=payload)
+                response = await client.post(
+                    url,
+                    files={"file": (filename, file_contents, mimetype)},
+                    data={
+                        "session_id": session_id,
+                        "request_id": request_id,
+                        "filename": filename,
+                    },
+                )
         except httpx.TimeoutException:
             raise N8NUnavailableError("timeout en upload-evidence")
         except httpx.RequestError as e:
