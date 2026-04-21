@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session as DBSession
 
 from app.api.v1.dependencies import get_db
+from app.core.security import verify_n8n_webhook
 from app.repository.audit_log_repository import AuditLogRepository
 from app.schemas.webhook import ChatWebhookPayload, EvidenceWebhookPayload
 from app.services.chat_service import ChatService
@@ -12,7 +13,7 @@ from app.utils.logger import log_success, log_warning
 router = APIRouter(prefix="/webhook", tags=["webhooks"])
 
 
-@router.post("/evidence-uploaded")
+@router.post("/evidence-uploaded", dependencies=[Depends(verify_n8n_webhook)])
 def evidence_uploaded(
     payload: EvidenceWebhookPayload, db: DBSession = Depends(get_db)
 ) -> dict:
@@ -43,7 +44,7 @@ def evidence_uploaded(
     return {"received": True}
 
 
-@router.post("/chat-response")
+@router.post("/chat-response", dependencies=[Depends(verify_n8n_webhook)])
 def chat_response(
     payload: ChatWebhookPayload, db: DBSession = Depends(get_db)
 ) -> dict:

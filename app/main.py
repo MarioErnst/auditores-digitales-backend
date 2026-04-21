@@ -5,11 +5,13 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.api.v1.endpoints import chat, evidencia, sessions, webhooks
 from app.config import settings
-from app.database import create_tables
+from app.database import SessionLocal, create_tables
 from app.utils.logger import log_start, log_stop, log_success
+from app.utils.n8n import n8n_client
 
 
 @asynccontextmanager
@@ -53,8 +55,33 @@ def root() -> dict:
 
 
 @app.get("/health")
-def health() -> dict:
+async def health() -> dict:
+    # Database check
+    db_status: str
+    db = SessionLocal()
+    try:
+        db.execute(text("SELECT 1"))
+        db_status = "ok"
+    except Exception:
+        db_status = "error"
+    finally:
+        db.close()
+
+    # N8N check
+    n8n_result = await n8n_client.check_health()
+    n8n_info = {
+        "status": n8n_result["status"],
+        "url": n8n_result["url"],
+        "mode": settings.n8n_webhook_mode,
+    }
+    if "error" in n8n_result:
+        n8n_info["error"] = n8n_result["error"]
+
     return {
         "status": "ok",
         "timestamp": datetime.utcnow().isoformat(),
+        "services": {
+            "database": db_status,
+            "n8n": n8n_info,
+        },
     }

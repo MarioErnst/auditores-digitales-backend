@@ -11,9 +11,9 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 @router.post("/", response_model=ChatResponse)
-def chat(body: ChatRequest, db: DBSession = Depends(get_db)) -> ChatResponse:
+async def chat(body: ChatRequest, db: DBSession = Depends(get_db)) -> ChatResponse:
     service = ChatService(db)
     try:
-        return service.process_chat(body.question, body.session_id)
+        return await service.process_chat(body.question, body.session_id)
     except SessionNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
