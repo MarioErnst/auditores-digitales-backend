@@ -116,6 +116,36 @@ class N8NClient:
             log_warning("N8N upload respondió OK pero sin JSON válido")
             return {"status": "ok", "request_id": request_id}
 
+    async def trigger_upload_base(
+        self, file_contents: bytes, filename: str, descripcion: str
+    ) -> dict:
+        url = self._webhook_url("upload-base")
+        mimetype = _detect_mimetype(filename)
+
+        log_upload(f"Disparando N8N upload-base para {filename}")
+        try:
+            async with httpx.AsyncClient(timeout=_UPLOAD_TIMEOUT) as client:
+                response = await client.post(
+                    url,
+                    files={"file": (filename, file_contents, mimetype)},
+                    data={"filename": filename, "descripcion": descripcion},
+                )
+        except httpx.TimeoutException:
+            raise N8NUnavailableError("timeout en upload-base")
+        except httpx.RequestError as e:
+            raise N8NUnavailableError(str(e))
+
+        if response.status_code not in (200, 202):
+            log_warning(f"N8N respondió con status {response.status_code}")
+            return {"status": "error", "detail": f"N8N status {response.status_code}"}
+
+        log_success(f"N8N respondió OK para upload-base {filename}")
+        try:
+            return response.json()
+        except Exception:
+            log_warning("N8N upload-base respondió OK pero sin JSON válido")
+            return {"status": "ok"}
+
     async def trigger_chat(
         self, question: str, session_id: str, request_id: str
     ) -> dict:

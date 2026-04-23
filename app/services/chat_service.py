@@ -40,7 +40,7 @@ class ChatService:
             log_warning(f"N8N no disponible para chat: {e}")
 
         final_answer = answer or N8N_OFFLINE_MESSAGE
-        sources_json = [{"name": s.name, "relevance": s.relevance} for s in sources]
+        sources_json = [s.model_dump(exclude_none=True) for s in sources]
 
         self.chat_repo.create(
             session_id=session_id,
@@ -64,7 +64,5 @@ class ChatService:
         history = self.chat_repo.get_by_request_id(request_id)
         if not history:
             return None
-        sources_json = [
-            {"name": s.name, "relevance": s.relevance} for s in sources
-        ]
+        sources_json = [s.model_dump(exclude_none=True) for s in sources]
         return self.chat_repo.update_answer(history, answer, sources_json)
