@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.api.v1.endpoints import chat, evidencia, sessions, webhooks
+from app.api.v1.endpoints import admin, chat, evidencia, sessions, webhooks
 from app.config import settings
 from app.database import SessionLocal, create_tables
 from app.utils.logger import log_start, log_stop, log_success
@@ -43,6 +43,7 @@ app.include_router(sessions.router, prefix="/api/v1")
 app.include_router(evidencia.router, prefix="/api/v1")
 app.include_router(chat.router, prefix="/api/v1")
 app.include_router(webhooks.router, prefix="/api/v1")
+app.include_router(admin.router, prefix="/api/v1")
 
 
 @app.get("/")

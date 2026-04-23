@@ -13,7 +13,14 @@ class ChatRequest(BaseModel):
 class SourceInfo(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    name: str = Field(..., validation_alias="nombre")
+    # Nuevo formato N8N
+    texto: Optional[str] = None
+    store: Optional[str] = None
+    pagina: Optional[int] = None
+    titulo: Optional[str] = None
+
+    # Formato anterior (compatibilidad)
+    name: Optional[str] = Field(None, validation_alias="nombre")
     relevance: Optional[float] = Field(None, validation_alias="relevancia")
 
 
