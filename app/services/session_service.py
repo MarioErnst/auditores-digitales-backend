@@ -16,6 +16,9 @@ class SessionService:
     def create_session(self, audit_id: Optional[str] = None) -> Session:
         return self.repo.create(audit_id=audit_id)
 
+
+    def list_sessions(self):
+        return self.repo.list_all()
     def get_session(self, session_id: str) -> Session:
         session = self.repo.get(session_id)
         if not session:

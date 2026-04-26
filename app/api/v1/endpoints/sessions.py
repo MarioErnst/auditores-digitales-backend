@@ -27,3 +27,9 @@ def get_session(
         return service.get_session(session_id)
     except SessionNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/")
+def list_sessions(db: DBSession = Depends(get_db)):
+    service = SessionService(db)
+    return service.list_sessions()

@@ -18,5 +18,8 @@ class SessionRepository:
         self.db.refresh(session)
         return session
 
+
+    def list_all(self):
+        return self.db.query(Session).order_by(Session.created_at.desc()).all()
     def get(self, session_id: str) -> Optional[Session]:
         return self.db.query(Session).filter(Session.id == session_id).first()
