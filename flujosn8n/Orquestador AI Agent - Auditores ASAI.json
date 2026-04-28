@@ -1,0 +1,276 @@
+{
+  "name": "Orquestador AI Agent - Auditores ASAI",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "router",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -496,
+        720
+      ],
+      "id": "2f7c8967-ae50-4882-85f2-ca677cbfbe49",
+      "name": "Webhook /router",
+      "webhookId": "router-agent-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first() || { json: {} };\nreturn [{\n  json: {\n    ...item.json,\n    api_base: 'http://localhost:8000/api/v1',\n    n8n_base: 'http://localhost:5678/webhook',\n    gemini_model: 'models/gemini-2.5-flash',\n    temperature: 0.1,\n    memory_limit: 10\n  },\n  binary: item.binary\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -384,
+        560
+      ],
+      "id": "asai-config-orq-001",
+      "name": "Config"
+    },
+    {
+      "parameters": {
+        "jsCode": "const root = $input.first().json;\nconst body = root.body || root;\nconst sessionId = body.session_id || 'default';\nconst mensaje = body.mensaje || body.pregunta || body.message || '';\nconst filename = body.filename || null;\n\nif (!mensaje && !filename) throw new Error('mensaje o filename es requerido');\n\nreturn [{\n  json: {\n    session_id: sessionId,\n    input: `[SESSION_ID:${sessionId}] ${mensaje}${filename ? ' [ARCHIVO:' + filename + ']' : ''}`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -272,
+        720
+      ],
+      "id": "5cbc5d51-5ee0-4442-a0b9-487ab5d8f311",
+      "name": "Extraer datos"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.input }}\n",
+        "options": {
+          "systemMessage": "=Eres un asistente experto en auditoría interna certificado por el IIA (Institute of Internal Auditors).\n\nSession ID del usuario: {{ $json.session_id }}\n\nTu rol es asistir al equipo auditor. Tienes acceso a estas herramientas:\n\n1. **consultar_documentos_rag**: Usa cuando el usuario pregunte sobre normas IIA, documentos de auditoría, evidencias subidas o cualquier consulta que requiera buscar en archivos. Pasa la pregunta completa como input.\n\n2. **subir_evidencia**: Usa cuando el usuario mencione subir, cargar o adjuntar archivos de evidencia. Pasa el nombre del archivo como input.\n\n3. **listar_stores**: Usa para ver qué stores de documentos RAG están disponibles.\n\nReglas:\n- Siempre fundamenta respuestas citando normas IIA cuando aplique\n- Responde en español, de forma estructurada y profesional\n- Si no tienes información suficiente, indícalo claramente\n- El session_id para las herramientas es: {{ $json.session_id }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        16,
+        720
+      ],
+      "id": "c0967b49-1e0e-428f-a608-ce70860dbe81",
+      "name": "AI Agent Auditor"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -144,
+        976
+      ],
+      "id": "a45cb341-065b-4c0e-a999-f5f70f5a64a3",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "B9nIYRfYgOjtB0N3",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Extraer datos').first().json.session_id }}",
+        "contextWindowLength": 10,
+        "tableName": "n8n_chat_histories"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        -336,
+        976
+      ],
+      "id": "asai-memory-orq-001",
+      "name": "Memoria conversacional"
+    },
+    {
+      "parameters": {
+        "name": "consultar_documentos_rag",
+        "description": "Consulta documentos de auditoría, normas IIA y evidencias subidas al sistema RAG. Usa esta herramienta cuando el usuario pregunte sobre normas, procedimientos, evidencias o cualquier tema documentado. El input debe ser la pregunta completa del usuario.",
+        "jsCode": "const input = $input.item.json;\nconst pregunta = input.input || input.query || JSON.stringify(input);\nconst rawInput = typeof pregunta === 'string' ? pregunta : JSON.stringify(pregunta);\n\nlet sessionId = 'default';\nconst sessionMatch = rawInput.match(/\\[SESSION_ID:([^\\]]+)\\]/);\nif (sessionMatch) sessionId = sessionMatch[1];\nconst cleanPregunta = rawInput.replace(/\\[SESSION_ID:[^\\]]+\\]\\s*/, '').replace(/\\[ARCHIVO:[^\\]]+\\]\\s*/, '').trim();\n\nconst n8nBase = $('Config').first().json.n8n_base;\n\ntry {\n  const response = await this.helpers.httpRequest({\n    method: 'POST',\n    url: n8nBase + '/chat-auditoria',\n    body: {\n      session_id: sessionId,\n      pregunta: cleanPregunta\n    },\n    json: true,\n    timeout: 30000\n  });\n  return response.respuesta || JSON.stringify(response);\n} catch (error) {\n  return 'Error al consultar documentos RAG: ' + error.message;\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        112,
+        976
+      ],
+      "id": "c5addcf7-0467-4d43-b96a-c5885ec6f7a7",
+      "name": "Consultar Documentos RAG"
+    },
+    {
+      "parameters": {
+        "name": "subir_evidencia",
+        "description": "Procesa la subida de archivos de evidencia de auditoría. Usa esta herramienta cuando el usuario mencione subir, cargar o adjuntar archivos como facturas, contratos, planillas u otros documentos. El input debe ser el nombre del archivo a subir.",
+        "jsCode": "const input = $input.item.json;\nconst filename = input.input || input.query || 'documento.pdf';\nconst rawInput = typeof filename === 'string' ? filename : JSON.stringify(filename);\n\nlet sessionId = 'default';\nconst sessionMatch = rawInput.match(/\\[SESSION_ID:([^\\]]+)\\]/);\nif (sessionMatch) sessionId = sessionMatch[1];\nconst cleanFilename = rawInput.replace(/\\[SESSION_ID:[^\\]]+\\]\\s*/, '').replace(/\\[ARCHIVO:[^\\]]+\\]\\s*/, '').trim();\n\nconst n8nBase = $('Config').first().json.n8n_base;\n\ntry {\n  const response = await this.helpers.httpRequest({\n    method: 'POST',\n    url: n8nBase + '/upload-evidence',\n    body: {\n      session_id: sessionId,\n      filename: cleanFilename\n    },\n    json: true,\n    timeout: 30000\n  });\n  return 'Evidencia procesada: ' + JSON.stringify(response);\n} catch (error) {\n  return 'Error al subir evidencia: ' + error.message;\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        304,
+        976
+      ],
+      "id": "de37b18c-5e01-4969-8e7d-7dcc5d3747d2",
+      "name": "Subir Evidencia"
+    },
+    {
+      "parameters": {
+        "name": "listar_stores",
+        "description": "Lista los File Search Stores de documentos RAG disponibles en el sistema. Usa esta herramienta cuando el usuario pregunte qué documentos hay disponibles, qué stores existen o quiera ver el estado del sistema.",
+        "jsCode": "const apiBase = $('Config').first().json.api_base;\n\ntry {\n  const response = await this.helpers.httpRequest({\n    method: 'GET',\n    url: apiBase + '/rag-stores/',\n    json: true,\n    timeout: 10000\n  });\n  return 'Stores disponibles: ' + JSON.stringify(response);\n} catch (error) {\n  return 'Error al listar stores: ' + error.message;\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        512,
+        976
+      ],
+      "id": "9e874673-4243-4725-9435-fe6060017ae8",
+      "name": "Listar Stores"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ respuesta: $json.output, session_id: $('Extraer datos').first().json.session_id, timestamp: new Date().toISOString() }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        304,
+        720
+      ],
+      "id": "6028a60e-10a1-4b1e-9725-87cfedbe65b1",
+      "name": "Respuesta final"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook /router": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Extraer datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer datos": {
+      "main": [
+        [
+          {
+            "node": "AI Agent Auditor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent Auditor",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memoria conversacional": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent Auditor",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar Documentos RAG": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent Auditor",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Subir Evidencia": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent Auditor",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Listar Stores": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent Auditor",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent Auditor": {
+      "main": [
+        [
+          {
+            "node": "Respuesta final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "229c91f1-ccf8-4aa8-a859-ee236ddcf982",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9497eb9b69f9e2c2214038e678f73fe53cb73c0e8bd84aad81562718b34da06a"
+  },
+  "id": "XqDM5HphL18WN09Q",
+  "tags": []
+}
