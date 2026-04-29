@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from app.schemas.chat import ChatRequest, ChatResponse, SourceInfo
+from app.schemas.chat import ChatRequest, ChatStatusResponse, ChatSubmitResponse, SourceInfo
 from app.schemas.common import ErrorResponse
 from app.schemas.evidence import EvidenceUploadResponse
 from app.schemas.session import SessionCreate, SessionResponse
@@ -10,7 +10,8 @@ __all__ = [
     "SessionCreate",
     "SessionResponse",
     "ChatRequest",
-    "ChatResponse",
+    "ChatSubmitResponse",
+    "ChatStatusResponse",
     "SourceInfo",
     "EvidenceUploadResponse",
     "ChatWebhookPayload",

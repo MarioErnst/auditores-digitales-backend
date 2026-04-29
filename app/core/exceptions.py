@@ -32,3 +32,15 @@ class N8NUnavailableError(ASAIException):
     def __init__(self, detail: str) -> None:
         self.detail = detail
         super().__init__(f"N8N no disponible: {detail}")
+
+
+class ChatNotFoundError(ASAIException):
+    def __init__(self, request_id: str) -> None:
+        self.request_id = request_id
+        super().__init__(f"Chat no encontrado: {request_id}")
+
+
+class EvidenceNotFoundError(ASAIException):
+    def __init__(self, evidence_id: str) -> None:
+        self.evidence_id = evidence_id
+        super().__init__(f"Evidencia no encontrada: {evidence_id}")

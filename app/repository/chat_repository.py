@@ -3,6 +3,7 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session as DBSession
 
+from app.core.constants import CHAT_STATUS_COMPLETED, CHAT_STATUS_PROCESSING
 from app.models.chat_history import ChatHistory
 from app.utils.uuid_helper import generate_uuid
 
@@ -16,6 +17,7 @@ class ChatRepository:
         session_id: str,
         request_id: str,
         question: str,
+        status: str = CHAT_STATUS_PROCESSING,
         answer: Optional[str] = None,
         sources: Optional[List[dict]] = None,
     ) -> ChatHistory:
@@ -26,6 +28,7 @@ class ChatRepository:
             question=question,
             answer=answer,
             sources=sources or [],
+            status=status,
         )
         self.db.add(history)
         self.db.commit()
@@ -44,6 +47,13 @@ class ChatRepository:
     ) -> ChatHistory:
         history.answer = answer
         history.sources = sources
+        history.status = CHAT_STATUS_COMPLETED
+        self.db.commit()
+        self.db.refresh(history)
+        return history
+
+    def update_status(self, history: ChatHistory, status: str) -> ChatHistory:
+        history.status = status
         self.db.commit()
         self.db.refresh(history)
         return history

@@ -20,7 +20,7 @@ def evidence_uploaded(
     try:
         service = EvidenceService(db)
         service.handle_webhook_response(
-            payload.request_id, payload.status, payload.file_ref
+            payload.request_id, payload.status, payload.file_ref, payload.document_name, payload.store_name
         )
 
         audit_repo = AuditLogRepository(db)

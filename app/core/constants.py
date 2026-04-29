@@ -8,3 +8,7 @@ N8N_OFFLINE_MESSAGE: str = "N8N no disponible en este momento"
 
 DEFAULT_SESSION_STATUS: str = "active"
 DEFAULT_EVIDENCE_STATUS: str = "processing"
+
+CHAT_STATUS_PROCESSING: str = "processing"
+CHAT_STATUS_COMPLETED: str = "completed"
+CHAT_STATUS_ERROR: str = "error"

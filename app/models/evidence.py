@@ -15,6 +15,8 @@ class EvidenceMetadata(Base):
     id = Column(String(36), primary_key=True, default=generate_uuid)
     session_id = Column(String(36), ForeignKey("sessions.id"), nullable=False)
     filename = Column(String(255), nullable=False)
+    document_name = Column(String(500), nullable=True)
+    store_name = Column(String(255), nullable=True)
     gcs_path = Column(String(500))
     file_ref = Column(String(255))
     status = Column(String(20), default=DEFAULT_EVIDENCE_STATUS)
