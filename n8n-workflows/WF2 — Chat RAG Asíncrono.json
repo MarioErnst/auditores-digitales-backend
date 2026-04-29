@@ -1,0 +1,372 @@
+{
+  "name": "WF2 — Chat RAG Asíncrono",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat-query",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1264,
+        1024
+      ],
+      "id": "8fbd38a9-0e77-433c-bfd5-bc0b1b96c387",
+      "name": "Webhook /chat-query",
+      "webhookId": "chat-auditoria"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\n\nconst sessionId = body.session_id;\nconst pregunta = body.pregunta || body.question;\nconst requestId = body.request_id;\nconst includeHistory = body.include_history !== false;\n\nif (!sessionId) throw new Error('session_id es requerido');\nif (!pregunta) throw new Error('pregunta es requerida');\nif (!requestId) throw new Error('request_id es requerido');\n\nreturn [{\n  json: {\n    session_id: sessionId,\n    pregunta: pregunta,\n    request_id: requestId,\n    include_history: includeHistory\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1040,
+        1024
+      ],
+      "id": "2707a644-8efa-45ed-aa38-94d74e8e35cc",
+      "name": "Extraer y validar datos"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ received: true, request_id: $json.request_id }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -816,
+        1024
+      ],
+      "id": "195077fb-9190-43de-a7c1-03a548f222ce",
+      "name": "Responder 200 inmediato"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT\n  (SELECT store_name FROM rag_stores WHERE store_type = 'base' LIMIT 1) as base_store,\n  (SELECT store_name FROM rag_stores WHERE store_type = 'session' AND session_id = '{{ $json.session_id }}' LIMIT 1) as session_store,\n  (SELECT json_agg(h) FROM (SELECT question, answer FROM chat_history WHERE session_id = '{{ $json.session_id }}' AND answer IS NOT NULL AND answer != 'N8N no disponible en este momento' ORDER BY created_at DESC LIMIT 20) h) as historial",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -592,
+        1024
+      ],
+      "id": "c48899df-011e-4bf5-aec0-c367f460b4f1",
+      "name": "Obtener contexto (BD)",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "ApHxYg0HkRvwN2Sw",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputData = $('Extraer y validar datos').first().json;\nconst dbData = $input.first().json;\n\nconst storeNames = [];\nif (dbData.base_store) storeNames.push(dbData.base_store);\nif (dbData.session_store) storeNames.push(dbData.session_store);\n\nif (storeNames.length === 0) {\n  throw new Error('No hay stores RAG disponibles para esta sesión.');\n}\n\nconst historialRows = dbData.historial || [];\nconst historial = historialRows\n  .reverse()\n  .flatMap(row => ([\n    { role: 'user', parts: [{ text: row.question }] },\n    { role: 'model', parts: [{ text: row.answer }] }\n  ]));\n\nconst systemPrompt = `Eres ASAI, un auditor interno experto certificado por el IIA (Institute of Internal Auditors) con más de 20 años de experiencia.\n\nCONTEXTO DE ESTA AUDITORÍA:\n- Tenés acceso a dos repositorios de documentos:\n  1. Repositorio base: normas IIA, marcos de referencia y documentación técnica\n  2. Repositorio de evidencias: documentos específicos subidos por el equipo auditor para esta auditoría\n\nCÓMO DEBES RESPONDER:\n- SIEMPRE buscá primero en los documentos disponibles antes de usar tu conocimiento general\n- Si encontrás información en los documentos, citá la fuente específica (nombre del documento, página si está disponible)\n- Si la pregunta involucra datos numéricos o transacciones, hacé los cálculos y presentá los resultados en tablas cuando sea útil\n- Si detectás anomalías o riesgos en los datos, destacalos proactivamente aunque no te los hayan pedido explícitamente\n- Cuando cites normas IIA, indicá el número y nombre exacto de la norma\n- Si no encontrás suficiente información en los documentos, indicalo claramente y separalo de lo que sí encontraste\n\nFORMATO DE RESPUESTA:\n- Usá markdown para estructurar la respuesta (títulos, listas, tablas)\n- Primero respondé la pregunta directamente\n- Luego agregá el fundamento normativo si aplica\n- Si hay hallazgos adicionales relevantes, mencionálos al final como \"Hallazgos adicionales\"\n\nTONO: Profesional, preciso y orientado a acción. El auditor necesita información útil para tomar decisiones.`;\n\nreturn [{\n  json: {\n    session_id: inputData.session_id,\n    pregunta: inputData.pregunta,\n    request_id: inputData.request_id,\n    store_names: storeNames,\n    historial: historial,\n    system_prompt: systemPrompt,\n    historial_count: historial.length\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -368,
+        1024
+      ],
+      "id": "6f351b8e-c415-4a04-ae18-cd2d7eb15674",
+      "name": "Construir contexto RAG"
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nconst contextData = $('Construir contexto RAG').first().json;\n\nlet respuesta = '';\ntry {\n  if (geminiResponse.content?.parts?.[0]?.text) {\n    respuesta = geminiResponse.content.parts[0].text;\n  } else if (geminiResponse.text) {\n    respuesta = geminiResponse.text;\n  } else if (geminiResponse.candidates?.[0]?.content?.parts?.[0]?.text) {\n    respuesta = geminiResponse.candidates[0].content.parts[0].text;\n  } else {\n    respuesta = 'Sin respuesta';\n  }\n} catch(e) {\n  respuesta = 'Error: ' + e.message;\n}\n\nfunction detectarFuente(texto, tituloGemini) {\n  if (tituloGemini) return tituloGemini;\n  if (!texto) return 'Documento de evidencia';\n  if (texto.includes('ID_Factura') || texto.includes('ID_Pago')) return 'DB Facturas y Pagos';\n  if (texto.includes('ID_Proveedor') || texto.includes('ID_Empleado')) return 'DB Maestro Proveedores y Empleados';\n  if (texto.includes('Plan de Auditoría') || texto.includes('pruebas de control')) return 'Plan de Auditoría';\n  if (texto.includes('Norma') || texto.includes('IIA') || texto.includes('MIPP')) return 'Normas IIA';\n  return 'Documento de evidencia';\n}\n\nconst fuentes = [];\ntry {\n  const chunks = geminiResponse.groundingMetadata?.groundingChunks || [];\n  for (const chunk of chunks) {\n    const ctx = chunk.retrievedContext;\n    if (ctx) {\n      const nombre = detectarFuente(ctx.text, ctx.title);\n      fuentes.push({\n        nombre: nombre,\n        extracto: ctx.text?.substring(0, 150),\n        pagina: ctx.pageNumber || null,\n        store: ctx.fileSearchStore\n      });\n    }\n  }\n} catch(e) {}\n\nconst fuentesUnicas = fuentes.filter((f, index, self) =>\n  index === self.findIndex(t => t.nombre === f.nombre)\n);\n\nconst tokensEntrada = geminiResponse.usageMetadata?.promptTokenCount || 0;\nconst tokensSalida = geminiResponse.usageMetadata?.candidatesTokenCount || 0;\n\nreturn [{\n  json: {\n    session_id: contextData.session_id,\n    pregunta: contextData.pregunta,\n    request_id: contextData.request_id,\n    respuesta: respuesta,\n    fuentes: fuentesUnicas,\n    tokens_entrada: tokensEntrada,\n    tokens_salida: tokensSalida,\n    historial_mensajes_usados: contextData.historial_count\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        1024
+      ],
+      "id": "74f65632-f839-4f2a-87ba-051b870667b4",
+      "name": "Extraer respuesta y tokens"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ $json.pregunta }}"
+            }
+          ]
+        },
+        "builtInTools": {
+          "fileSearch": {
+            "fileSearchStoreNames": "={{ JSON.stringify($json.store_names) }}"
+          }
+        },
+        "options": {
+          "systemMessage": "={{ $json.system_prompt }}",
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -144,
+        1024
+      ],
+      "id": "9740a283-58be-4c36-b189-49121aa557c4",
+      "name": "Gemini RAG Query1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "goDwZHihUzS4gzPg",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/api/v1/webhook/chat-response",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Secret",
+              "value": "db9001f599fc729001bb4bca2c50f73cb8ba505dfe6b8ef0a9d4515af069be78"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ request_id: $json.request_id, session_id: $json.session_id, respuesta: $json.respuesta, fuentes: $json.fuentes }) }}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        496,
+        1024
+      ],
+      "id": "872ff9ba-8ca5-4415-97a6-ffead60ca330",
+      "name": "Llamar webhook FastAPI1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -688,
+        1520
+      ],
+      "id": "9b58c0b9-a457-4e39-bdac-384ea7a8b75a",
+      "name": "AI Agent",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -752,
+        1776
+      ],
+      "id": "187ec041-69ce-4b11-bae7-a3f40bc4c79a",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "goDwZHihUzS4gzPg",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        -624,
+        1888
+      ],
+      "id": "43d738fe-88dc-43ff-87be-af7c84e574a9",
+      "name": "Postgres Chat Memory",
+      "credentials": {
+        "postgres": {
+          "id": "ApHxYg0HkRvwN2Sw",
+          "name": "Postgres account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -432,
+        1888
+      ],
+      "id": "436d1fc2-aae4-4e57-b87d-7a07893c66cd",
+      "name": "Call n8n Workflow Tool",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "content": "",
+        "height": 400,
+        "width": 2320,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1440,
+        896
+      ],
+      "typeVersion": 1,
+      "id": "c8ced68f-3e8b-4436-85f9-0458e807ea05",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook /chat-query": {
+      "main": [
+        [
+          {
+            "node": "Extraer y validar datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer y validar datos": {
+      "main": [
+        [
+          {
+            "node": "Responder 200 inmediato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder 200 inmediato": {
+      "main": [
+        [
+          {
+            "node": "Obtener contexto (BD)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener contexto (BD)": {
+      "main": [
+        [
+          {
+            "node": "Construir contexto RAG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construir contexto RAG": {
+      "main": [
+        [
+          {
+            "node": "Gemini RAG Query1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer respuesta y tokens": {
+      "main": [
+        [
+          {
+            "node": "Llamar webhook FastAPI1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini RAG Query1": {
+      "main": [
+        [
+          {
+            "node": "Extraer respuesta y tokens",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call n8n Workflow Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "4c1f0526-e1bd-4eab-a2b6-7eff4e159349",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7a3e76ad6e96c92b1ac5cd3dfd82c60ac641716dcb8755ec8b0013f615fcac80"
+  },
+  "id": "0RQP4MlsyLim16xG83p9l",
+  "tags": []
+}
