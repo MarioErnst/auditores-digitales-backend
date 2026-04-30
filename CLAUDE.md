@@ -120,6 +120,15 @@ auditores-digitales-backend/
 
 PostgreSQL local, puerto 5432, BD `auditores_digitales_db`. Las tablas se crean automáticamente al iniciar el servidor (`create_tables()` en lifespan de `app/main.py`). No hay migraciones por ahora.
 
+### Columnas agregadas manualmente (ejecutar en PgAdmin en el servidor)
+
+```sql
+ALTER TABLE chat_history ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'processing';
+ALTER TABLE evidence_metadata ADD COLUMN IF NOT EXISTS document_name VARCHAR(500);
+ALTER TABLE evidence_metadata ADD COLUMN IF NOT EXISTS store_name VARCHAR(255);
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS audit_name VARCHAR(255);
+```
+
 ## API versioning
 
 Todos los endpoints cuelgan de `/api/v1/`. Para agregar `v2`, crear `app/api/v2/endpoints/` y registrar el nuevo router en `app/main.py` con `prefix="/api/v2"`.

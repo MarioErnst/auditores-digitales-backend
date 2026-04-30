@@ -14,6 +14,7 @@ class Session(Base):
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
     audit_id = Column(String(36), nullable=True)
+    audit_name = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     status = Column(String(20), default=DEFAULT_SESSION_STATUS)
