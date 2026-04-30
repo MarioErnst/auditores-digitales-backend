@@ -15,7 +15,7 @@
         176
       ],
       "id": "211dbf05-3fe2-4091-9d84-b9ceace69352",
-      "name": "Webhook /upload-evidencia2",
+      "name": "Webhook /upload-evidencia",
       "webhookId": "upload-evidencia"
     },
     {
@@ -29,7 +29,7 @@
         176
       ],
       "id": "d5a9af6c-0c64-4540-a8eb-17edc098706b",
-      "name": "01 - Extraer y convertir archivo1"
+      "name": "01 - Extraer y convertir archivo"
     },
     {
       "parameters": {
@@ -44,12 +44,12 @@
         176
       ],
       "id": "a0425169-a47f-43a0-b508-5380cadf000b",
-      "name": "02 - Buscar store de sesión (BD)1",
+      "name": "02 - Buscar store de sesión (BD)",
       "alwaysOutputData": true
     },
     {
       "parameters": {
-        "jsCode": "const sessionStore = $('02 - Buscar store de sesión (BD)1').first().json;\nconst fileItem = $('01 - Extraer y convertir archivo1').first();\n\nconst existingStoreName = sessionStore.store_name || null;\n\nreturn [{\n  json: {\n    session_id: fileItem.json.session_id,\n    request_id: fileItem.json.request_id,\n    filename: fileItem.json.filename,\n    mimetype: fileItem.json.mimetype,\n    binary_key: fileItem.json.binary_key,\n    session_store_name: existingStoreName,\n    needs_new_store: existingStoreName === null\n  },\n  binary: fileItem.binary\n}];"
+        "jsCode": "const sessionStore = $('02 - Buscar store de sesión (BD)').first().json;\nconst fileItem = $('01 - Extraer y convertir archivo').first();\n\nconst existingStoreName = sessionStore.store_name || null;\n\nreturn [{\n  json: {\n    session_id: fileItem.json.session_id,\n    request_id: fileItem.json.request_id,\n    filename: fileItem.json.filename,\n    mimetype: fileItem.json.mimetype,\n    binary_key: fileItem.json.binary_key,\n    session_store_name: existingStoreName,\n    needs_new_store: existingStoreName === null\n  },\n  binary: fileItem.binary\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -58,7 +58,7 @@
         176
       ],
       "id": "a233bf6d-c584-452b-8ee2-4cc796ad799f",
-      "name": "03 - ¿Existe store de sesión?1"
+      "name": "03 - ¿Existe store de sesión?"
     },
     {
       "parameters": {
@@ -91,12 +91,12 @@
         176
       ],
       "id": "0a62609d-8077-4647-9934-18556e41686b",
-      "name": "04 - ¿Crear store nuevo?1"
+      "name": "04 - ¿Crear store nuevo?"
     },
     {
       "parameters": {
         "resource": "fileSearch",
-        "displayName": "=sesion-{{ $('03 - ¿Existe store de sesión?1').first().json.session_id }}"
+        "displayName": "=sesion-{{ $('03 - ¿Existe store de sesión?').first().json.session_id }}"
       },
       "type": "@n8n/n8n-nodes-langchain.googleGemini",
       "typeVersion": 1,
@@ -105,12 +105,12 @@
         -48
       ],
       "id": "f4d526db-532f-40eb-a5c4-b75e47f16fc0",
-      "name": "05 - Crear File Search Store de sesión1"
+      "name": "05 - Crear File Search Store de sesión"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO rag_stores (id, store_name, store_type, descripcion, archivos_count, session_id, created_at, updated_at)\nVALUES (\n  gen_random_uuid(),\n  '{{ $('05 - Crear File Search Store de sesión1').first().json.name }}',\n  'session',\n  'Store evidencias sesion {{ $('03 - ¿Existe store de sesión?1').first().json.session_id }}',\n  0,\n  '{{ $('03 - ¿Existe store de sesión?1').first().json.session_id }}',\n  NOW(),\n  NOW()\n)\nRETURNING store_name",
+        "query": "INSERT INTO rag_stores (id, store_name, store_type, descripcion, archivos_count, session_id, created_at, updated_at)\nVALUES (\n  gen_random_uuid(),\n  '{{ $('05 - Crear File Search Store de sesión').first().json.name }}',\n  'session',\n  'Store evidencias sesion {{ $('03 - ¿Existe store de sesión?').first().json.session_id }}',\n  0,\n  '{{ $('03 - ¿Existe store de sesión?').first().json.session_id }}',\n  NOW(),\n  NOW()\n)\nRETURNING store_name",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -120,11 +120,11 @@
         -48
       ],
       "id": "723010b9-b9f6-4872-b14d-4e48a9903dbb",
-      "name": "06 - Guardar nuevo store en BD1"
+      "name": "06 - Guardar nuevo store en BD"
     },
     {
       "parameters": {
-        "jsCode": "// Recuperar datos de ambas ramas posibles\nlet prev = $('03 - ¿Existe store de sesión?1').first().json;\nlet storeName = prev.session_store_name;\n\n// Si se creó un store nuevo, usar ese\ntry {\n  const newStoreData = $('06 - Guardar nuevo store en BD1').first().json;\n  if (newStoreData && newStoreData.store_name) {\n    storeName = newStoreData.store_name;\n  }\n} catch(e) {\n  // La rama del store nuevo no se ejecutó, usar el existente\n}\n\n// CRÍTICO: Recuperar el binario del nodo original (antes de cualquier bifurcación)\nconst binaryData = $('03 - ¿Existe store de sesión?1').first().binary;\n\nif (!binaryData) {\n  throw new Error('Binario perdido - no se pudo recuperar de nodo anterior');\n}\n\nreturn [{\n  json: {\n    session_id: prev.session_id,\n    request_id: prev.request_id,\n    filename: prev.filename,\n    mimetype: prev.mimetype,\n    binary_key: prev.binary_key,\n    store_name: storeName\n  },\n  binary: binaryData\n}];"
+        "jsCode": "// Recuperar datos de ambas ramas posibles\nlet prev = $('03 - ¿Existe store de sesión?').first().json;\nlet storeName = prev.session_store_name;\n\n// Si se creó un store nuevo, usar ese\ntry {\n  const newStoreData = $('06 - Guardar nuevo store en BD').first().json;\n  if (newStoreData && newStoreData.store_name) {\n    storeName = newStoreData.store_name;\n  }\n} catch(e) {\n  // La rama del store nuevo no se ejecutó, usar el existente\n}\n\n// CRÍTICO: Recuperar el binario del nodo original (antes de cualquier bifurcación)\nconst binaryData = $('03 - ¿Existe store de sesión?').first().binary;\n\nif (!binaryData) {\n  throw new Error('Binario perdido - no se pudo recuperar de nodo anterior');\n}\n\nreturn [{\n  json: {\n    session_id: prev.session_id,\n    request_id: prev.request_id,\n    filename: prev.filename,\n    mimetype: prev.mimetype,\n    binary_key: prev.binary_key,\n    store_name: storeName\n  },\n  binary: binaryData\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -133,7 +133,7 @@
         192
       ],
       "id": "763734c6-5983-493f-a6fb-ac8a4653a7dc",
-      "name": "07 - Combinar store + file data1"
+      "name": "07 - Combinar store + file data"
     },
     {
       "parameters": {
@@ -153,7 +153,7 @@
         192
       ],
       "id": "d9f2d4f2-969e-4ba8-a62e-86c3abbbe2cd",
-      "name": "08 - HTTP Request (Upload a Gemini)1",
+      "name": "08 - HTTP Request (Upload a Gemini)",
       "credentials": {
         "googlePalmApi": {
           "id": "B9nIYRfYgOjtB0N3",
@@ -164,7 +164,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE evidence_metadata\nSET\n  file_ref = '{{ $('07 - Combinar store + file data1').first().json.store_name }}',\n  status = 'indexed',\n  updated_at = NOW()\nWHERE id = '{{ $('07 - Combinar store + file data1').first().json.request_id }}';\n\nUPDATE rag_stores\nSET\n  archivos_count = archivos_count + 1,\n  updated_at = NOW()\nWHERE store_name = '{{ $('07 - Combinar store + file data1').first().json.store_name }}'",
+        "query": "UPDATE evidence_metadata\nSET\n  file_ref = '{{ $('07 - Combinar store + file data').first().json.store_name }}',\n  status = 'indexed'\nWHERE file_ref = '{{ $('07 - Combinar store + file data').first().json.request_id }}';\n\nUPDATE rag_stores\nSET\n  archivos_count = archivos_count + 1,\n  updated_at = NOW()\nWHERE store_name = '{{ $('07 - Combinar store + file data').first().json.store_name }}'",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -174,12 +174,12 @@
         192
       ],
       "id": "caa25adc-f957-4032-8d04-c2e731ad63f7",
-      "name": "09 - Actualizar BD1"
+      "name": "09 - Actualizar BD"
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ status: 'indexed', session_id: $('07 - Combinar store + file data1').first().json.session_id, request_id: $('07 - Combinar store + file data1').first().json.request_id, store: $('07 - Combinar store + file data1').first().json.store_name }) }}",
+        "responseBody": "={{ JSON.stringify({ status: 'indexed', session_id: $('07 - Combinar store + file data').first().json.session_id, request_id: $('07 - Combinar store + file data').first().json.request_id, store: $('07 - Combinar store + file data').first().json.store_name }) }}",
         "options": {
           "responseCode": 200
         }
@@ -191,122 +191,122 @@
         192
       ],
       "id": "18c37ce3-69db-48a7-af3d-783fc09a1111",
-      "name": "10 - Responder a FastAPI1"
+      "name": "10 - Responder a FastAPI"
     }
   ],
   "pinData": {},
   "connections": {
-    "Webhook /upload-evidencia2": {
+    "Webhook /upload-evidencia": {
       "main": [
         [
           {
-            "node": "01 - Extraer y convertir archivo1",
+            "node": "01 - Extraer y convertir archivo",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "01 - Extraer y convertir archivo1": {
+    "01 - Extraer y convertir archivo": {
       "main": [
         [
           {
-            "node": "02 - Buscar store de sesión (BD)1",
+            "node": "02 - Buscar store de sesión (BD)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "02 - Buscar store de sesión (BD)1": {
+    "02 - Buscar store de sesión (BD)": {
       "main": [
         [
           {
-            "node": "03 - ¿Existe store de sesión?1",
+            "node": "03 - ¿Existe store de sesión?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "03 - ¿Existe store de sesión?1": {
+    "03 - ¿Existe store de sesión?": {
       "main": [
         [
           {
-            "node": "04 - ¿Crear store nuevo?1",
+            "node": "04 - ¿Crear store nuevo?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "04 - ¿Crear store nuevo?1": {
+    "04 - ¿Crear store nuevo?": {
       "main": [
         [
           {
-            "node": "05 - Crear File Search Store de sesión1",
+            "node": "05 - Crear File Search Store de sesión",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "07 - Combinar store + file data1",
+            "node": "07 - Combinar store + file data",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "05 - Crear File Search Store de sesión1": {
+    "05 - Crear File Search Store de sesión": {
       "main": [
         [
           {
-            "node": "06 - Guardar nuevo store en BD1",
+            "node": "06 - Guardar nuevo store en BD",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "06 - Guardar nuevo store en BD1": {
+    "06 - Guardar nuevo store en BD": {
       "main": [
         [
           {
-            "node": "07 - Combinar store + file data1",
+            "node": "07 - Combinar store + file data",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "07 - Combinar store + file data1": {
+    "07 - Combinar store + file data": {
       "main": [
         [
           {
-            "node": "08 - HTTP Request (Upload a Gemini)1",
+            "node": "08 - HTTP Request (Upload a Gemini)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "08 - HTTP Request (Upload a Gemini)1": {
+    "08 - HTTP Request (Upload a Gemini)": {
       "main": [
         [
           {
-            "node": "09 - Actualizar BD1",
+            "node": "09 - Actualizar BD",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "09 - Actualizar BD1": {
+    "09 - Actualizar BD": {
       "main": [
         [
           {
-            "node": "10 - Responder a FastAPI1",
+            "node": "10 - Responder a FastAPI",
             "type": "main",
             "index": 0
           }
@@ -314,7 +314,7 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate"
