@@ -1,0 +1,328 @@
+{
+  "name": "WF0 — Upload Documento Base RAG",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "upload-base",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -944,
+        48
+      ],
+      "id": "1ef221b2-a132-46bc-9592-09d27fb72afa",
+      "name": "Webhook /upload-base",
+      "webhookId": "upload-base"
+    },
+    {
+      "parameters": {
+        "jsCode": "const json = $input.first().json.body || {};\nconst binary = $input.first().binary;\n\nconst filename = json.filename;\nconst descripcion = json.descripcion || '';\n\nif (!filename) throw new Error('filename es requerido');\nif (!binary || Object.keys(binary).length === 0) {\n  throw new Error('No hay archivo binario adjunto');\n}\n\nconst binaryKey = Object.keys(binary)[0];\nconst binaryData = binary[binaryKey];\n\nconst ext = filename.split('.').pop().toLowerCase();\nconst mimeMap = {\n  'pdf':  'application/pdf',\n  'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',\n  'doc':  'application/msword',\n  'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',\n  'xls':  'application/vnd.ms-excel',\n  'csv':  'text/csv',\n  'txt':  'text/plain',\n  'json': 'application/json',\n  'md':   'text/markdown',\n  'html': 'text/html',\n  'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'\n};\nconst mimetype = binaryData?.mimeType || mimeMap[ext] || 'application/octet-stream';\n\nreturn [{\n  json: {\n    filename: filename,\n    descripcion: descripcion,\n    mimetype: mimetype\n  },\n  binary: binary\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        48
+      ],
+      "id": "20473f9c-bb27-4b23-b0ca-29d662b4c6df",
+      "name": "Extraer archivo"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT store_name FROM rag_stores WHERE store_type = 'base' LIMIT 1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -496,
+        48
+      ],
+      "id": "5dd68fac-e61c-40a9-a53d-ad6484adae38",
+      "name": "Buscar store base (BD)",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const storeResult = $('Buscar store base (BD)').first().json;\nconst fileData = $('Extraer archivo').first().json;\n\nconst existingStoreName = storeResult.store_name || null;\n\nreturn [{\n  json: {\n    filename: fileData.filename,\n    descripcion: fileData.descripcion,\n    mimetype: fileData.mimetype,\n    base_store_name: existingStoreName,\n    needs_new_store: existingStoreName === null\n  },\n  binary: $('Extraer archivo').first().binary\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -272,
+        48
+      ],
+      "id": "afa8a518-1fa0-41e8-b5fc-052bf1ef8a81",
+      "name": "¿Existe store base?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-01",
+              "leftValue": "={{ $json.needs_new_store }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -48,
+        48
+      ],
+      "id": "699c88e0-6a8d-42c5-a53e-c63c85a76600",
+      "name": "¿Crear store base?"
+    },
+    {
+      "parameters": {
+        "resource": "fileSearch",
+        "displayName": "rag-base-iia"
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        160,
+        -112
+      ],
+      "id": "b2c3305c-2780-47e7-8f57-0a22dfcfc42e",
+      "name": "Crear store base en Gemini"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO rag_stores (id, store_name, store_type, descripcion, archivos_count, session_id, created_at, updated_at)\nVALUES (\n  gen_random_uuid(),\n  '{{ $('Crear store base en Gemini').first().json.name }}',\n  'base',\n  'Repositorio centralizado - Normas IIA y documentación base',\n  0,\n  NULL,\n  NOW(),\n  NOW()\n)\nRETURNING store_name",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        384,
+        -112
+      ],
+      "id": "06c4b929-7840-4de2-b7b9-6d3b86ec924b",
+      "name": "Guardar store base en BD"
+    },
+    {
+      "parameters": {
+        "jsCode": "let storeName;\nlet prev;\n\ntry {\n  storeName = $('Guardar store base en BD').first().json.store_name;\n  prev = $('¿Existe store base?').first();\n} catch(e) {\n  prev = $('¿Existe store base?').first();\n  storeName = prev.json.base_store_name;\n}\n\nreturn [{\n  json: {\n    filename: prev.json.filename,\n    descripcion: prev.json.descripcion,\n    mimetype: prev.json.mimetype,\n    store_name: storeName\n  },\n  binary: prev.binary\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        64
+      ],
+      "id": "a7ba88da-6f91-458c-99d7-74a9dadcf431",
+      "name": "Combinar store + archivo"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/upload/v1beta/{{ $json.store_name }}:uploadToFileSearchStore?uploadType=media",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "file",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        832,
+        64
+      ],
+      "id": "64603b66-9d1f-43f5-82ad-7a2d41ffb28a",
+      "name": "Subir archivo al store base",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "B9nIYRfYgOjtB0N3",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE rag_stores\nSET\n  archivos_count = archivos_count + 1,\n  updated_at = NOW()\nWHERE store_name = '{{ $('Combinar store + archivo').first().json.store_name }}'",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1056,
+        64
+      ],
+      "id": "55e47586-030d-418c-a23d-b01ea25f8d5b",
+      "name": "Actualizar BD"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'indexed', filename: $('Combinar store + archivo').first().json.filename, store: $('Combinar store + archivo').first().json.store_name, descripcion: $('Combinar store + archivo').first().json.descripcion }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1280,
+        64
+      ],
+      "id": "0c0078cb-e247-4496-a602-e81d9eae0f9e",
+      "name": "Responder a FastAPI"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook /upload-base": {
+      "main": [
+        [
+          {
+            "node": "Extraer archivo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer archivo": {
+      "main": [
+        [
+          {
+            "node": "Buscar store base (BD)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar store base (BD)": {
+      "main": [
+        [
+          {
+            "node": "¿Existe store base?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Existe store base?": {
+      "main": [
+        [
+          {
+            "node": "¿Crear store base?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Crear store base?": {
+      "main": [
+        [
+          {
+            "node": "Crear store base en Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Combinar store + archivo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear store base en Gemini": {
+      "main": [
+        [
+          {
+            "node": "Guardar store base en BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar store base en BD": {
+      "main": [
+        [
+          {
+            "node": "Combinar store + archivo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combinar store + archivo": {
+      "main": [
+        [
+          {
+            "node": "Subir archivo al store base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Subir archivo al store base": {
+      "main": [
+        [
+          {
+            "node": "Actualizar BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar BD": {
+      "main": [
+        [
+          {
+            "node": "Responder a FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "dcf7d49a-7e8b-4088-82ae-597b7ef49c8c",
+  "meta": {
+    "instanceId": "7a6402841fda9594dad0015d7bb496a06564ccea724c27004a23d16231961da6"
+  },
+  "id": "LlrW6XD2xdGoZKXD",
+  "tags": []
+}

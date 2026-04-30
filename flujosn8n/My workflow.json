@@ -1,0 +1,234 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ $json.pregunta }}"
+            }
+          ]
+        },
+        "builtInTools": {
+          "fileSearch": {
+            "fileSearchStoreNames": "={{ JSON.stringify($json.store_names) }}"
+          }
+        },
+        "options": {
+          "systemMessage": "={{ $json.system_prompt }}",
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        1136,
+        -80
+      ],
+      "id": "86138283-b3a8-4c72-bd8b-8c416da2a67a",
+      "name": "Gemini RAG Query"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat-query",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        80,
+        -80
+      ],
+      "id": "6e81a528-626b-4430-a6bc-e8fce394d330",
+      "name": "Webhook /chat-auditoria1",
+      "webhookId": "chat-auditoria"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\n\nconst sessionId = body.session_id;\nconst pregunta = body.pregunta || body.question;\nconst includeHistory = body.include_history !== false;\n\nif (!sessionId) throw new Error('session_id es requerido');\nif (!pregunta) throw new Error('pregunta es requerida');\n\nreturn [{\n  json: {\n    session_id: sessionId,\n    pregunta: pregunta,\n    include_history: includeHistory\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        -80
+      ],
+      "id": "72a1e8b9-c5a9-49c2-9809-34a1d86ad013",
+      "name": "Extraer y validar datos1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  (SELECT store_name FROM rag_stores WHERE store_type = 'base' LIMIT 1) as base_store,\n  (SELECT store_name FROM rag_stores WHERE store_type = 'session' AND session_id = '{{ $json.session_id }}' LIMIT 1) as session_store,\n  (SELECT json_agg(h) FROM (SELECT question, answer FROM chat_history WHERE session_id = '{{ $json.session_id }}' AND answer IS NOT NULL ORDER BY created_at DESC LIMIT 20) h) as historial",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        624,
+        -80
+      ],
+      "id": "7a160555-f90c-443f-a448-974105668767",
+      "name": "Obtener store de sesión (BD)1",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputData = $('Extraer y validar datos1').first().json;\nconst dbData = $input.first().json;\n\nconst storeNames = [];\nif (dbData.base_store) storeNames.push(dbData.base_store);\nif (dbData.session_store) storeNames.push(dbData.session_store);\n\nif (storeNames.length === 0) {\n  throw new Error('No hay stores RAG disponibles para esta sesión.');\n}\n\nconst historialRows = dbData.historial || [];\nconst historial = historialRows\n  .reverse()\n  .flatMap(row => ([\n    { role: 'user', parts: [{ text: row.question }] },\n    { role: 'model', parts: [{ text: row.answer }] }\n  ]));\n\nconst systemPrompt = `Eres un auditor interno experto certificado por el IIA (Institute of Internal Auditors).\nTu rol es asistir al equipo auditor respondiendo preguntas sobre:\n1. Normas internacionales del IIA (Normas de Auditoría Interna)\n2. Marco de competencias del IIA\n3. Evidencias de auditoría subidas por el cliente (planillas, facturas, contratos, etc.)\n\nSiempre fundamenta tus respuestas citando:\n- La norma IIA específica cuando aplique (ej: \"Según la Norma 2310 del IIA...\")\n- Los datos concretos de las evidencias cuando estén disponibles\n\nSi no encontrás información suficiente en los documentos disponibles, indicalo claramente.\nResponde siempre en español, de forma estructurada y profesional.`;\n\nreturn [{\n  json: {\n    session_id: inputData.session_id,\n    pregunta: inputData.pregunta,\n    store_names: storeNames,\n    historial: historial,\n    system_prompt: systemPrompt,\n    historial_count: historial.length\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        -80
+      ],
+      "id": "e69ee1f9-b9b7-4e15-a89c-7d84766f29ae",
+      "name": "Construir contexto RAG1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nconst contextData = $('Construir contexto RAG1').first().json;\n\nlet respuesta = '';\ntry {\n  if (geminiResponse.content?.parts?.[0]?.text) {\n    respuesta = geminiResponse.content.parts[0].text;\n  } else if (geminiResponse.text) {\n    respuesta = geminiResponse.text;\n  } else if (geminiResponse.candidates?.[0]?.content?.parts?.[0]?.text) {\n    respuesta = geminiResponse.candidates[0].content.parts[0].text;\n  } else {\n    respuesta = 'Sin respuesta';\n  }\n} catch(e) {\n  respuesta = 'Error: ' + e.message;\n}\n\n// Detectar nombre legible del documento por contenido\nfunction detectarFuente(texto, tituloGemini) {\n  if (tituloGemini) return tituloGemini;\n  if (!texto) return 'Documento de evidencia';\n  if (texto.includes('ID_Factura') || texto.includes('ID_Pago')) return 'DB Facturas y Pagos';\n  if (texto.includes('ID_Proveedor') || texto.includes('ID_Empleado')) return 'DB Maestro Proveedores y Empleados';\n  if (texto.includes('Plan de Auditoría') || texto.includes('pruebas de control')) return 'Plan de Auditoría';\n  if (texto.includes('Norma') || texto.includes('IIA') || texto.includes('MIPP')) return 'Normas IIA';\n  return 'Documento de evidencia';\n}\n\n// Extraer fuentes del groundingMetadata\nconst fuentes = [];\ntry {\n  const chunks = geminiResponse.groundingMetadata?.groundingChunks || [];\n  for (const chunk of chunks) {\n    const ctx = chunk.retrievedContext;\n    if (ctx) {\n      const nombre = detectarFuente(ctx.text, ctx.title);\n      fuentes.push({\n        nombre: nombre,\n        extracto: ctx.text?.substring(0, 150),\n        pagina: ctx.pageNumber || null,\n        store: ctx.fileSearchStore\n      });\n    }\n  }\n} catch(e) { /* sin fuentes */ }\n\n// Deduplicar por nombre\nconst fuentesUnicas = fuentes.filter((f, index, self) => \n  index === self.findIndex(t => t.nombre === f.nombre)\n);\n\nconst tokensEntrada = geminiResponse.usageMetadata?.promptTokenCount || 0;\nconst tokensSalida = geminiResponse.usageMetadata?.candidatesTokenCount || 0;\n\nreturn [{\n  json: {\n    session_id: contextData.session_id,\n    pregunta: contextData.pregunta,\n    respuesta: respuesta,\n    fuentes: fuentesUnicas,\n    tokens_entrada: tokensEntrada,\n    tokens_salida: tokensSalida,\n    historial_mensajes_usados: contextData.historial_count\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1424,
+        -80
+      ],
+      "id": "57dc869d-fda7-4489-abca-6f3549469b62",
+      "name": "Extraer respuesta y tokens1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO chat_history (id, session_id, request_id, question, answer, created_at)\nVALUES (\n  gen_random_uuid(),\n  '{{ $json.session_id }}',\n  gen_random_uuid(),\n  '{{ $json.pregunta.replace(/'/g, \"''\") }}',\n  '{{ $json.respuesta.replace(/'/g, \"''\") }}',\n  NOW()\n)",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1648,
+        -80
+      ],
+      "id": "8ada9e4b-52c8-4291-b4aa-b7b423246d8d",
+      "name": "Guardar en chat_history (BD)1"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ \n  respuesta: $('Extraer respuesta y tokens1').first().json.respuesta, \n  fuentes: $('Extraer respuesta y tokens1').first().json.fuentes,\n  session_id: $('Extraer respuesta y tokens1').first().json.session_id, \n  tokens: { \n    entrada: $('Extraer respuesta y tokens1').first().json.tokens_entrada, \n    salida: $('Extraer respuesta y tokens1').first().json.tokens_salida \n  }, \n  historial_mensajes_usados: $('Extraer respuesta y tokens1').first().json.historial_mensajes_usados \n}) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1856,
+        -80
+      ],
+      "id": "2029ef1b-593b-4f4d-bee3-44d9f19c610d",
+      "name": "Responder a FastAPI1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gemini RAG Query": {
+      "main": [
+        [
+          {
+            "node": "Extraer respuesta y tokens1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook /chat-auditoria1": {
+      "main": [
+        [
+          {
+            "node": "Extraer y validar datos1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer y validar datos1": {
+      "main": [
+        [
+          {
+            "node": "Obtener store de sesión (BD)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener store de sesión (BD)1": {
+      "main": [
+        [
+          {
+            "node": "Construir contexto RAG1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construir contexto RAG1": {
+      "main": [
+        [
+          {
+            "node": "Gemini RAG Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer respuesta y tokens1": {
+      "main": [
+        [
+          {
+            "node": "Guardar en chat_history (BD)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar en chat_history (BD)1": {
+      "main": [
+        [
+          {
+            "node": "Responder a FastAPI1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "bd5c84d4-9c7f-4784-a33d-4033b93e1729",
+  "meta": {
+    "instanceId": "7a6402841fda9594dad0015d7bb496a06564ccea724c27004a23d16231961da6"
+  },
+  "id": "qKQ8ULFc0dzfv5bH",
+  "tags": []
+}

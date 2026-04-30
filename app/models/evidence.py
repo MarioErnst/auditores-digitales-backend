@@ -21,6 +21,7 @@ class EvidenceMetadata(Base):
     file_ref = Column(String(255))
     status = Column(String(20), default=DEFAULT_EVIDENCE_STATUS)
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     session = relationship("Session", back_populates="evidence")
 

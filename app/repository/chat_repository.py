@@ -42,6 +42,14 @@ class ChatRepository:
             .first()
         )
 
+    def list_by_session(self, session_id: str) -> List[ChatHistory]:
+        return (
+            self.db.query(ChatHistory)
+            .filter(ChatHistory.session_id == session_id)
+            .order_by(ChatHistory.created_at.asc())
+            .all()
+        )
+
     def update_answer(
         self, history: ChatHistory, answer: str, sources: List[dict]
     ) -> ChatHistory:

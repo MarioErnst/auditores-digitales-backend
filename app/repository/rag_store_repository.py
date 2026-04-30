@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from typing import Optional
+from typing import List, Optional
 
 from sqlalchemy.orm import Session as DBSession
 
@@ -11,6 +11,13 @@ from app.utils.uuid_helper import generate_uuid
 class RagStoreRepository:
     def __init__(self, db: DBSession) -> None:
         self.db = db
+
+    def list_all(self) -> List[RagStore]:
+        return (
+            self.db.query(RagStore)
+            .order_by(RagStore.store_type, RagStore.created_at.desc())
+            .all()
+        )
 
     def get_base_store(self) -> Optional[RagStore]:
         return (

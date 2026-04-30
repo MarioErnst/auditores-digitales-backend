@@ -146,6 +146,29 @@ class N8NClient:
             log_warning("N8N upload-base respondió OK pero sin JSON válido")
             return {"status": "ok"}
 
+    async def trigger_agent(self, mensaje: str, session_id: str) -> dict:
+        url = self._webhook_url("router")
+        payload = {"session_id": session_id, "mensaje": mensaje}
+
+        log_chat(f"Disparando orquestador para session_id={session_id}")
+        try:
+            async with httpx.AsyncClient(timeout=_CHAT_TIMEOUT) as client:
+                response = await client.post(url, json=payload)
+        except httpx.TimeoutException:
+            raise N8NUnavailableError(f"timeout en orquestador ({_CHAT_TIMEOUT}s)")
+        except httpx.RequestError as e:
+            raise N8NUnavailableError(str(e))
+
+        if response.status_code not in (200, 202):
+            log_warning(f"Orquestador respondió status {response.status_code}")
+            return {"status": "error", "detail": f"N8N status {response.status_code}"}
+
+        try:
+            return response.json()
+        except Exception:
+            log_warning("Orquestador respondió OK pero sin JSON válido")
+            return {"status": "error", "detail": "respuesta no válida"}
+
     async def trigger_chat(
         self, question: str, session_id: str, request_id: str
     ) -> dict:
