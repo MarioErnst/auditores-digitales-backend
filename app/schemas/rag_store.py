@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict
 class RagStoreBase(BaseModel):
     store_name: str
     store_type: Literal["base", "session"]
-    descripcion: Optional[str] = None
+    description: Optional[str] = None
     session_id: Optional[str] = None
 
 
@@ -20,6 +20,6 @@ class RagStoreResponse(RagStoreBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    archivos_count: int
+    file_count: int
     created_at: datetime
     updated_at: datetime

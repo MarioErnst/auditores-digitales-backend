@@ -121,7 +121,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=INSERT INTO rag_stores (id, store_name, store_type, descripcion, archivos_count, session_id, created_at, updated_at)\nVALUES (\n  gen_random_uuid(),\n  '{{ $('05 - Crear File Search Store de sesión1').first().json.name }}',\n  'session',\n  'Store evidencias sesion {{ $('03 - ¿Existe store de sesión?1').first().json.session_id }}',\n  0,\n  '{{ $('03 - ¿Existe store de sesión?1').first().json.session_id }}',\n  NOW(),\n  NOW()\n)\nRETURNING store_name",
+        "query": "=INSERT INTO rag_stores (id, store_name, store_type, description, file_count, session_id, created_at, updated_at)\nVALUES (\n  gen_random_uuid(),\n  '{{ $('05 - Crear File Search Store de sesión1').first().json.name }}',\n  'session',\n  'Store evidencias sesion {{ $('03 - ¿Existe store de sesión?1').first().json.session_id }}',\n  0,\n  '{{ $('03 - ¿Existe store de sesión?1').first().json.session_id }}',\n  NOW(),\n  NOW()\n)\nRETURNING store_name",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -173,7 +173,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ \n  status: 'indexed', \n  session_id: $('07 - Combinar store + file data1').first().json.session_id, \n  request_id: $('07 - Combinar store + file data1').first().json.request_id, \n  store_name: $('07 - Combinar store + file data1').first().json.store_name, \n  document_name: $('08 - HTTP Request (Upload a Gemini)1').first().json.response.documentName \n}) }}",
+        "responseBody": "={{ JSON.stringify({ \n  status: 'indexed', \n  session_id: $('07 - Combinar store + file data1').first().json.session_id, \n  request_id: $('07 - Combinar store + file data1').first().json.request_id, \n  store_name: $('07 - Combinar store + file data1').first().json.store_name, \n  gemini_resource_name: $('08 - HTTP Request (Upload a Gemini)1').first().json.response.documentName \n}) }}",
         "options": {
           "responseCode": 200
         }
@@ -206,7 +206,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"status\": \"indexed\",\n  \"session_id\": \"{{ $('07 - Combinar store + file data1').first().json.session_id }}\",\n  \"request_id\": \"{{ $('07 - Combinar store + file data1').first().json.request_id }}\",\n  \"store_name\": \"{{ $('07 - Combinar store + file data1').first().json.store_name }}\",\n  \"document_name\": \"{{ $('08 - HTTP Request (Upload a Gemini)1').first().json.response.documentName }}\"\n}",
+        "jsonBody": "={\n  \"status\": \"indexed\",\n  \"session_id\": \"{{ $('07 - Combinar store + file data1').first().json.session_id }}\",\n  \"request_id\": \"{{ $('07 - Combinar store + file data1').first().json.request_id }}\",\n  \"store_name\": \"{{ $('07 - Combinar store + file data1').first().json.store_name }}\",\n  \"gemini_resource_name\": \"{{ $('08 - HTTP Request (Upload a Gemini)1').first().json.response.documentName }}\"\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",

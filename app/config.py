@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     debug: bool = False
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+    api_key: str = ""
+    app_env: str = "development"
 
 
 settings = Settings()

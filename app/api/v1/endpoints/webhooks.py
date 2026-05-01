@@ -20,17 +20,21 @@ def evidence_uploaded(
     try:
         service = EvidenceService(db)
         service.handle_webhook_response(
-            payload.request_id, payload.status, payload.file_ref, payload.document_name, payload.store_name
+            payload.request_id,
+            payload.status,
+            payload.gemini_ref,
+            payload.gemini_resource_name,
+            payload.store_name,
         )
 
         audit_repo = AuditLogRepository(db)
         audit_repo.create(
             event_type="evidence_uploaded",
             status=payload.status,
-            data={
+            event_data={
                 "request_id": payload.request_id,
                 "session_id": payload.session_id,
-                "file_ref": payload.file_ref,
+                "gemini_ref": payload.gemini_ref,
                 "error": payload.error,
             },
         )
@@ -62,7 +66,7 @@ def chat_response(
         audit_repo.create(
             event_type="chat_response",
             status="success",
-            data={
+            event_data={
                 "request_id": payload.request_id,
                 "session_id": payload.session_id,
                 "sources_count": len(payload.sources),

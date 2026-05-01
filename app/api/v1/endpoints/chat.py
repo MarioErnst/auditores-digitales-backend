@@ -5,10 +5,15 @@ from sqlalchemy.orm import Session as DBSession
 from app.api.v1.dependencies import get_db
 from app.core.exceptions import ChatNotFoundError, SessionNotFoundError
 from app.core.constants import N8N_OFFLINE_MESSAGE
+from app.core.security import verify_api_key
 from app.schemas.chat import ChatPollResponse, ChatRequest, ChatSubmitResponse
 from app.services.chat_service import ChatService, dispatch_chat_to_n8n
 
-router = APIRouter(prefix="/chat", tags=["chat"])
+router = APIRouter(
+    prefix="/chat",
+    tags=["chat"],
+    dependencies=[Depends(verify_api_key)],
+)
 
 
 @router.post("/", response_model=ChatSubmitResponse, status_code=202)

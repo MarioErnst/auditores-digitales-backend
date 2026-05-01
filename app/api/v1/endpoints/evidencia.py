@@ -9,10 +9,15 @@ from app.core.exceptions import (
     InvalidFileExtensionError,
     SessionNotFoundError,
 )
+from app.core.security import verify_api_key
 from app.schemas.evidence import EvidenceListItem, EvidenceUploadResponse
 from app.services.evidence_service import EvidenceService
 
-router = APIRouter(prefix="/evidencia", tags=["evidencia"])
+router = APIRouter(
+    prefix="/evidencia",
+    tags=["evidencia"],
+    dependencies=[Depends(verify_api_key)],
+)
 
 
 @router.get("/", response_model=list[EvidenceListItem])

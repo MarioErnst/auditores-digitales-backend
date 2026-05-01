@@ -16,8 +16,9 @@ class EvidenceListItem(BaseModel):
     id: str
     session_id: str
     filename: str
-    document_name: Optional[str] = None
+    gemini_resource_name: Optional[str] = None
     store_name: Optional[str] = None
     status: str
-    file_ref: Optional[str] = None
+    gemini_ref: Optional[str] = None
     created_at: datetime
+    updated_at: Optional[datetime] = None

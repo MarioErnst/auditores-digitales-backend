@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const json = $input.first().json.body || {};\nconst binary = $input.first().binary;\n\nconst filename = json.filename;\nconst descripcion = json.descripcion || '';\n\nif (!filename) throw new Error('filename es requerido');\nif (!binary || Object.keys(binary).length === 0) {\n  throw new Error('No hay archivo binario adjunto');\n}\n\nconst binaryKey = Object.keys(binary)[0];\nconst binaryData = binary[binaryKey];\n\nconst ext = filename.split('.').pop().toLowerCase();\nconst mimeMap = {\n  'pdf':  'application/pdf',\n  'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',\n  'doc':  'application/msword',\n  'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',\n  'xls':  'application/vnd.ms-excel',\n  'csv':  'text/csv',\n  'txt':  'text/plain',\n  'json': 'application/json',\n  'md':   'text/markdown',\n  'html': 'text/html',\n  'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'\n};\nconst mimetype = binaryData?.mimeType || mimeMap[ext] || 'application/octet-stream';\n\nreturn [{\n  json: {\n    filename: filename,\n    descripcion: descripcion,\n    mimetype: mimetype\n  },\n  binary: binary\n}];"
+        "jsCode": "const json = $input.first().json.body || {};\nconst binary = $input.first().binary;\n\nconst filename = json.filename;\nconst description = json.description || '';\n\nif (!filename) throw new Error('filename es requerido');\nif (!binary || Object.keys(binary).length === 0) {\n  throw new Error('No hay archivo binario adjunto');\n}\n\nconst binaryKey = Object.keys(binary)[0];\nconst binaryData = binary[binaryKey];\n\nconst ext = filename.split('.').pop().toLowerCase();\nconst mimeMap = {\n  'pdf':  'application/pdf',\n  'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',\n  'doc':  'application/msword',\n  'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',\n  'xls':  'application/vnd.ms-excel',\n  'csv':  'text/csv',\n  'txt':  'text/plain',\n  'json': 'application/json',\n  'md':   'text/markdown',\n  'html': 'text/html',\n  'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'\n};\nconst mimetype = binaryData?.mimeType || mimeMap[ext] || 'application/octet-stream';\n\nreturn [{\n  json: {\n    filename: filename,\n    description: description,\n    mimetype: mimetype\n  },\n  binary: binary\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -55,7 +55,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const storeResult = $('Buscar store base (BD)').first().json;\nconst fileData = $('Extraer archivo').first().json;\n\nconst existingStoreName = storeResult.store_name || null;\n\nreturn [{\n  json: {\n    filename: fileData.filename,\n    descripcion: fileData.descripcion,\n    mimetype: fileData.mimetype,\n    base_store_name: existingStoreName,\n    needs_new_store: existingStoreName === null\n  },\n  binary: $('Extraer archivo').first().binary\n}];"
+        "jsCode": "const storeResult = $('Buscar store base (BD)').first().json;\nconst fileData = $('Extraer archivo').first().json;\n\nconst existingStoreName = storeResult.store_name || null;\n\nreturn [{\n  json: {\n    filename: fileData.filename,\n    description: fileData.description,\n    mimetype: fileData.mimetype,\n    base_store_name: existingStoreName,\n    needs_new_store: existingStoreName === null\n  },\n  binary: $('Extraer archivo').first().binary\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -121,7 +121,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=INSERT INTO rag_stores (id, store_name, store_type, descripcion, archivos_count, session_id, created_at, updated_at)\nVALUES (\n  gen_random_uuid(),\n  '{{ $('Crear store base en Gemini').first().json.name }}',\n  'base',\n  'Repositorio centralizado - Normas IIA y documentación base',\n  0,\n  NULL,\n  NOW(),\n  NOW()\n)\nRETURNING store_name",
+        "query": "=INSERT INTO rag_stores (id, store_name, store_type, description, file_count, session_id, created_at, updated_at)\nVALUES (\n  gen_random_uuid(),\n  '{{ $('Crear store base en Gemini').first().json.name }}',\n  'base',\n  'Repositorio centralizado - Normas IIA y documentación base',\n  0,\n  NULL,\n  NOW(),\n  NOW()\n)\nRETURNING store_name",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -141,7 +141,7 @@
     },
     {
       "parameters": {
-        "jsCode": "let storeName;\nlet prev;\n\ntry {\n  storeName = $('Guardar store base en BD').first().json.store_name;\n  prev = $('¿Existe store base?').first();\n} catch(e) {\n  prev = $('¿Existe store base?').first();\n  storeName = prev.json.base_store_name;\n}\n\nreturn [{\n  json: {\n    filename: prev.json.filename,\n    descripcion: prev.json.descripcion,\n    mimetype: prev.json.mimetype,\n    store_name: storeName\n  },\n  binary: prev.binary\n}];"
+        "jsCode": "let storeName;\nlet prev;\n\ntry {\n  storeName = $('Guardar store base en BD').first().json.store_name;\n  prev = $('¿Existe store base?').first();\n} catch(e) {\n  prev = $('¿Existe store base?').first();\n  storeName = prev.json.base_store_name;\n}\n\nreturn [{\n  json: {\n    filename: prev.json.filename,\n    description: prev.json.description,\n    mimetype: prev.json.mimetype,\n    store_name: storeName\n  },\n  binary: prev.binary\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -173,7 +173,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=UPDATE rag_stores\nSET\n  archivos_count = archivos_count + 1,\n  updated_at = NOW()\nWHERE store_name = '{{ $('Combinar store + archivo').first().json.store_name }}'",
+        "query": "=UPDATE rag_stores\nSET\n  file_count = file_count + 1,\n  updated_at = NOW()\nWHERE store_name = '{{ $('Combinar store + archivo').first().json.store_name }}'",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -194,7 +194,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ status: 'indexed', filename: $('Combinar store + archivo').first().json.filename, store: $('Combinar store + archivo').first().json.store_name, descripcion: $('Combinar store + archivo').first().json.descripcion }) }}",
+        "responseBody": "={{ JSON.stringify({ status: 'indexed', filename: $('Combinar store + archivo').first().json.filename, store: $('Combinar store + archivo').first().json.store_name, description: $('Combinar store + archivo').first().json.description, gemini_resource_name: $('Subir archivo al store base').first().json.response.documentName }) }}",
         "options": {
           "responseCode": 200
         }

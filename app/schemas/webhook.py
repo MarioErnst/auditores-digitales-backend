@@ -9,8 +9,8 @@ from app.schemas.chat import SourceInfo
 class EvidenceWebhookPayload(BaseModel):
     request_id: str
     status: str
-    file_ref: Optional[str] = None
-    document_name: Optional[str] = None
+    gemini_ref: Optional[str] = None
+    gemini_resource_name: Optional[str] = None
     store_name: Optional[str] = None
     session_id: str
     error: Optional[str] = None

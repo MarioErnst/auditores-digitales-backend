@@ -15,13 +15,13 @@ class AuditLogRepository:
         self,
         event_type: str,
         status: str,
-        data: Optional[dict] = None,
+        event_data: Optional[dict] = None,
     ) -> AuditLog:
         log = AuditLog(
             id=generate_uuid(),
             event_type=event_type,
             status=status,
-            data=data or {},
+            event_data=event_data or {},
         )
         self.db.add(log)
         self.db.commit()

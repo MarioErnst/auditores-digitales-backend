@@ -13,8 +13,10 @@ class Session(Base):
     __tablename__ = "sessions"
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
+    # Siempre NULL en datos reales. Sin uso documentado.
+    # Candidato a eliminar si no tiene uso futuro.
     audit_id = Column(String(36), nullable=True)
-    audit_name = Column(String(255), nullable=True)
+    audit_name = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     status = Column(String(20), default=DEFAULT_SESSION_STATUS)

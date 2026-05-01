@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, String
+from sqlalchemy import Column, DateTime, ForeignKey, String, func
 from sqlalchemy.orm import relationship
 
 from app.core.constants import DEFAULT_EVIDENCE_STATUS
@@ -15,12 +15,15 @@ class EvidenceMetadata(Base):
     id = Column(String(36), primary_key=True, default=generate_uuid)
     session_id = Column(String(36), ForeignKey("sessions.id"), nullable=False)
     filename = Column(String(255), nullable=False)
-    document_name = Column(String(500), nullable=True)
+    gemini_resource_name = Column(String(500), nullable=True)
     store_name = Column(String(255), nullable=True)
+    # Deprecated: residuo de arquitectura anterior con GCS.
+    # Siempre NULL. Candidata a eliminar en sprint futuro.
     gcs_path = Column(String(500))
-    file_ref = Column(String(255))
-    status = Column(String(20), default=DEFAULT_EVIDENCE_STATUS)
+    gemini_ref = Column(String(255))
+    status = Column(String(20), default=DEFAULT_EVIDENCE_STATUS, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     session = relationship("Session", back_populates="evidence")
 

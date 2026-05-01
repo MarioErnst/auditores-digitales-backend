@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session as DBSession
 
 from app.api.v1.dependencies import get_db
 from app.core.exceptions import SessionNotFoundError
+from app.core.security import verify_api_key
 from app.schemas.session import (
     SessionCreate,
     SessionListResponse,
@@ -12,7 +13,11 @@ from app.schemas.session import (
 )
 from app.services.session_service import SessionService
 
-router = APIRouter(prefix="/sessions", tags=["sessions"])
+router = APIRouter(
+    prefix="/sessions",
+    tags=["sessions"],
+    dependencies=[Depends(verify_api_key)],
+)
 
 
 @router.get("/", response_model=SessionListResponse)

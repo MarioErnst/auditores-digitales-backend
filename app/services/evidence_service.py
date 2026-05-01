@@ -25,7 +25,7 @@ from app.utils.logger import log_warning
 from app.utils.uuid_helper import generate_uuid
 from app.utils.validators import validate_extension, validate_size
 
-_GEMINI_DELETE_URL = "https://generativelanguage.googleapis.com/v1beta/{document_name}"
+_GEMINI_DELETE_URL = "https://generativelanguage.googleapis.com/v1beta/{gemini_resource_name}"
 
 
 class EvidenceService:
@@ -44,11 +44,12 @@ class EvidenceService:
                 id=e.id,
                 session_id=e.session_id,
                 filename=e.filename,
-                document_name=e.document_name,
+                gemini_resource_name=e.gemini_resource_name,
                 store_name=e.store_name,
                 status=e.status,
-                file_ref=e.file_ref,
+                gemini_ref=e.gemini_ref,
                 created_at=e.created_at,
+                updated_at=e.updated_at,
             )
             for e in records
         ]
@@ -68,7 +69,7 @@ class EvidenceService:
         self.evidence_repo.create(
             session_id=session_id,
             filename=filename,
-            file_ref=request_id,
+            gemini_ref=request_id,
             status=DEFAULT_EVIDENCE_STATUS,
         )
 
@@ -88,16 +89,16 @@ class EvidenceService:
         self,
         request_id: str,
         status: str,
-        file_ref: Optional[str] = None,
-        document_name: Optional[str] = None,
+        gemini_ref: Optional[str] = None,
+        gemini_resource_name: Optional[str] = None,
         store_name: Optional[str] = None,
     ) -> Optional[EvidenceMetadata]:
-        evidence = self.evidence_repo.get_by_file_ref(request_id)
+        evidence = self.evidence_repo.get_by_gemini_ref(request_id)
         if not evidence:
             return None
-        self.evidence_repo.update_status(evidence, status, file_ref, store_name)
-        if document_name:
-            self.evidence_repo.update_document_name(evidence, document_name)
+        self.evidence_repo.update_status(evidence, status, gemini_ref, store_name)
+        if gemini_resource_name:
+            self.evidence_repo.update_gemini_resource_name(evidence, gemini_resource_name)
         return evidence
 
     async def delete_evidence(self, evidence_id: str, session_id: str) -> str:
@@ -107,17 +108,17 @@ class EvidenceService:
 
         filename = evidence.filename
 
-        if evidence.document_name and settings.gemini_api_key:
-            url = _GEMINI_DELETE_URL.format(document_name=evidence.document_name)
-            log_warning(f"Gemini DELETE URL: {url} (api_key={settings.gemini_api_key[:8]}...)")
+        if evidence.gemini_resource_name and settings.gemini_api_key:
+            url = _GEMINI_DELETE_URL.format(gemini_resource_name=evidence.gemini_resource_name)
+            log_warning(f"Gemini DELETE URL: {url} (gemini_api_key_set={bool(settings.gemini_api_key)})")
             try:
                 async with httpx.AsyncClient(timeout=10.0) as client:
                     response = await client.delete(url, params={"force": "true", "key": settings.gemini_api_key})
                 log_warning(f"Gemini DELETE status={response.status_code} body={response.text[:300]}")
             except Exception as e:
-                log_warning(f"No se pudo borrar de Gemini (document_name={evidence.document_name}): {e}")
+                log_warning(f"No se pudo borrar de Gemini (gemini_resource_name={evidence.gemini_resource_name}): {e}")
         else:
-            log_warning(f"Gemini DELETE saltado: document_name={evidence.document_name!r} gemini_api_key_set={bool(settings.gemini_api_key)}")
+            log_warning(f"Gemini DELETE saltado: gemini_resource_name={evidence.gemini_resource_name!r} gemini_api_key_set={bool(settings.gemini_api_key)}")
 
         self.evidence_repo.delete_by_id(evidence_id)
         return filename

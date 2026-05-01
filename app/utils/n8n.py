@@ -117,7 +117,7 @@ class N8NClient:
             return {"status": "ok", "request_id": request_id}
 
     async def trigger_upload_base(
-        self, file_contents: bytes, filename: str, descripcion: str
+        self, file_contents: bytes, filename: str, description: str
     ) -> dict:
         url = self._webhook_url("upload-base")
         mimetype = _detect_mimetype(filename)
@@ -128,7 +128,7 @@ class N8NClient:
                 response = await client.post(
                     url,
                     files={"file": (filename, file_contents, mimetype)},
-                    data={"filename": filename, "descripcion": descripcion},
+                    data={"filename": filename, "description": description},
                 )
         except httpx.TimeoutException:
             raise N8NUnavailableError("timeout en upload-base")

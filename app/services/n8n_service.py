@@ -25,9 +25,9 @@ class N8NService:
         return await self.client.trigger_chat(question, session_id, request_id)
 
     async def dispatch_upload_base(
-        self, file_contents: bytes, filename: str, descripcion: str
+        self, file_contents: bytes, filename: str, description: str
     ) -> dict:
-        return await self.client.trigger_upload_base(file_contents, filename, descripcion)
+        return await self.client.trigger_upload_base(file_contents, filename, description)
 
 
 n8n_service = N8NService()

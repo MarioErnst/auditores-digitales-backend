@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session as DBSession
 
 from app.models.rag_store import RagStore
 from app.utils.logger import log_warning
-from app.utils.uuid_helper import generate_uuid
 
 
 class RagStoreRepository:
@@ -36,11 +35,10 @@ class RagStoreRepository:
         display_name: str,
     ) -> RagStore:
         store = RagStore(
-            id=generate_uuid(),
             store_name=store_name,
             store_type="session",
-            descripcion=display_name,
-            archivos_count=0,
+            description=display_name,
+            file_count=0,
             session_id=session_id,
         )
         try:

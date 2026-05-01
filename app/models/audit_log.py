@@ -13,7 +13,7 @@ class AuditLog(Base):
     id = Column(String(36), primary_key=True, default=generate_uuid)
     event_type = Column(String(50), nullable=False)
     status = Column(String(20), nullable=False)
-    data = Column(JSON)
+    event_data = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     def __repr__(self) -> str:
