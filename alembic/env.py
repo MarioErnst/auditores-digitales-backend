@@ -10,7 +10,8 @@ from app.database import Base
 from app.models import session, evidence, rag_store, chat_history, audit_log  # noqa: F401
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.database_url)
+url = settings.get_database_url.replace("%", "%%")
+config.set_main_option("sqlalchemy.url", url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
