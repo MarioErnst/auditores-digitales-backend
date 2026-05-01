@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from app.core.exceptions import N8NUnavailableError
 from app.utils.n8n import n8n_client
 
 
@@ -28,6 +29,12 @@ class N8NService:
         self, file_contents: bytes, filename: str, description: str
     ) -> dict:
         return await self.client.trigger_upload_base(file_contents, filename, description)
+
+    async def dispatch_agent(self, message: str, session_id: str) -> dict:
+        try:
+            return await self.client.trigger_agent(message, session_id)
+        except Exception as e:
+            raise N8NUnavailableError(str(e))
 
 
 n8n_service = N8NService()

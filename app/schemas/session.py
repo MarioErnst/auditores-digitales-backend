@@ -35,3 +35,19 @@ class SessionListResponse(BaseModel):
 
 class SessionUpdateRequest(BaseModel):
     audit_name: str
+
+
+class MessageItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    question: str
+    answer: Optional[str] = None
+    status: str
+    created_at: datetime
+
+
+class SessionMessagesResponse(BaseModel):
+    session_id: str
+    messages: List[MessageItem]
+    total: int

@@ -5,9 +5,11 @@ from sqlalchemy.orm import Session as DBSession
 from app.api.v1.dependencies import get_db
 from app.core.exceptions import SessionNotFoundError
 from app.core.security import verify_api_key
+from app.repository.chat_repository import ChatRepository
 from app.schemas.session import (
     SessionCreate,
     SessionListResponse,
+    SessionMessagesResponse,
     SessionResponse,
     SessionUpdateRequest,
 )
@@ -56,3 +58,19 @@ def update_session(
         return service.update_audit_name(session_id, body.audit_name)
     except SessionNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/{session_id}/messages", response_model=SessionMessagesResponse)
+async def list_session_messages(
+    session_id: str, db: DBSession = Depends(get_db)
+) -> SessionMessagesResponse:
+    service = SessionService(db)
+    if not service.get_session_or_none(session_id):
+        raise HTTPException(status_code=404, detail=f"Sesion {session_id} no existe")
+    repo = ChatRepository(db)
+    messages = repo.list_by_session(session_id)
+    return SessionMessagesResponse(
+        session_id=session_id,
+        messages=messages,
+        total=len(messages),
+    )

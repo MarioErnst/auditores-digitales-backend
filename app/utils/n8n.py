@@ -179,4 +179,18 @@ class N8NClient:
             return {"status": "error", "detail": "respuesta no válida"}
 
 
+    async def trigger_agent(self, message: str, session_id: str) -> dict:
+        url = self._webhook_url("router")
+        try:
+            async with httpx.AsyncClient(timeout=_CHAT_TIMEOUT) as client:
+                response = await client.post(
+                    url,
+                    json={"session_id": session_id, "message": message},
+                )
+                response.raise_for_status()
+                return response.json()
+        except httpx.HTTPError as e:
+            raise N8NUnavailableError(str(e))
+
+
 n8n_client = N8NClient()
